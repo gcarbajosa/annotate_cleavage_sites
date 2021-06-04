@@ -1,15 +1,68 @@
 ---
-title: "R Notebook"
-output: html_notebook
+title: "Annotate Cleavage Notebook"
+output: anno_cleave_notebook.nb.html
 ---
 
-This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+Load the rtracklayer package to work with gtf files
 
-Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
 
 ```{r}
-plot(cars)
+
+library(readxl)
+library(dplyr)
+
+# Read nanopore file
+# Very rough approach just counting the number of reads covering a position
+my_nanopore_counts_file <-("../nanopore/NA12878-DirectRNA.pass.dedup.NoU.fastq.hg38.minimap2.sorted.chrM.countPerPos.txt") 
+my_nanopore_counts_obj <- read.table(my_nanopore_counts_file)
+#summary(my_nanopore_counts_obj)
+
+
+# Read file with ALL cleavage positions (including t2t)
+my_cleave_anno_file<-("gencode.v19.annotation.chrM.gene.cleavage.gtf")
+my_cleave_anno_obj <- read.table(my_cleave_anno_file )
+
+# How many in total
+length(my_cleave_anno_obj$V1)
+print(unique(my_cleave_anno_obj$V1))
+
+
+# Compare with nanopore to see how big are the counts for know positions
+cleave_starts_nano<- merge(x=my_cleave_anno_obj , y=my_nanopore_counts_obj , by.x="V2" , by.y="V2")
+cleave_ends_nano<- merge(x=my_cleave_anno_obj , y=my_nanopore_counts_obj , by.x="V3" , by.y="V2")
+
+
+# Read file with cleavage positions excluding tRNA to tRNA boundaries (not2t)
+my_cleave_anno_file_not2t <- ("gencode.v19.annotation.chrM.gene.cleavage.notRNA2tRNA.gtf")
+my_cleave_anno_obj_not2t <- read.table(my_cleave_anno_file_not2t )
+
+# How many not2t
+length(my_cleave_anno_obj_not2t$V1)
+print(unique(my_cleave_anno_obj_not2t$V1))
+
+# Read file with sites detected
+my_sites_detected <- read_xlsx("/home/gcarbajosa/Documents/Papers/Mine/CleavagePaper/DataSources/Cleavage.All.TablesData.xlsx", sheet = 1)
+
+# Compare sites_detected_with_nanopore counts
+sitesDetected_nano<- merge(x=my_sites_detected , y=my_nanopore_counts_obj , by.x="CaG SPUC in 50% samples" , by.y="V2")
+colnames(sitesDetected_nano)[11] <- "Nano_readCount"
+
+# How many sites detected overall (3bp max)
+my_detected_boundaries<- unique(my_sites_detected[my_sites_detected$`Absolute distance` < 4, "known gene boundary" ])
+my_detected_boundaries<- my_detected_boundaries[!is.na(my_detected_boundaries)]
+length(unique(my_detected_boundaries))
+
+# Ho many detected in t2t
+my_detected_boundaries_not2t <- my_detected_boundaries[my_detected_boundaries %in% my_cleave_anno_obj_not2t$V1]
+length(unique(my_detected_boundaries_not2t))
+print(my_detected_boundaries_not2t)
+
+# How many not detected in t2t
+my_undetected_boundaries <- my_cleave_anno_obj$V1[! my_cleave_anno_obj$V1 %in% my_detected_boundaries]
+
 ```
+
+
 
 Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Ctrl+Alt+I*.
 
